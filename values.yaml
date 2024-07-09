@@ -1,0 +1,72 @@
+server:
+  image:
+    repository: hashicorp/vault-enterprise
+    tag: 1.17-ent
+
+  enterpriseLicense:
+    secretName: vault-license
+
+  extraInitContainers:
+    - name: eks-az
+      image: curlimages/curl:latest
+      args:
+        - --output
+        - /run/eks-az/az
+        - http://169.254.169.254/latest/meta-data/placement/availability-zone-id
+      volumeMounts:
+        - name: eks-az
+          mountPath: /run/eks-az
+
+  volumeMounts:
+    - name: eks-az
+      mountPath: /run/eks-az
+      readOnly: true
+
+  volumes:
+    - name: eks-az
+      emptyDir: {}
+
+  postStart:
+    - /bin/sh
+    - -c
+    - cat /run/eks-az/az | xargs -I {} sed -i 's/AWS_AZ/{}/g'
+      /tmp/storageconfig.hcl
+    - "&& kill -SIGHUP $(pidof vault)"
+
+  topologySpreadConstraints:
+    - topologyKey: topology.kubernetes.io/zone
+      maxSkew: 1
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: vault
+          app.kubernetes.io/instance: vault
+
+  standalone:
+    enabled: false
+
+  ha:
+    enabled: true
+    replicas: 6
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+
+        listener "tcp" {
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_disable     = true # NOT FOR PRODUCTION!
+        }
+
+        storage "raft" {
+          path                      = "/vault/data"
+          autopilot_redundancy_zone = "AWS_AZ"
+
+          retry_join {
+            leader_api_addr = "http://vault-active:8200"
+          }
+        }
+
+        service_registration "kubernetes" {}

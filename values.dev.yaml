@@ -1,0 +1,17 @@
+---
+server:
+  # Automatically update pods when the StatefulSet configuration changes
+  updateStrategyType: RollingUpdate
+
+  # Override the default anti-affinity rules to *prefer* scheduling to
+  # independent nodes but allow scheduling to the same nodes if necessary
+  affinity: |
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 10
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: vault
+                app.kubernetes.io/instance: vault
