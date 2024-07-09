@@ -29,8 +29,7 @@ server:
   postStart:
     - /bin/sh
     - -c
-    - cat /run/eks-az/az | xargs -I {} sed -i 's/AWS_AZ/{}/g'
-      /tmp/storageconfig.hcl
+    - cat /run/eks-az/az | xargs -I {} sed -i 's/AWS_AZ/{}/g' /tmp/storageconfig.hcl
     - "&& kill -SIGHUP $(pidof vault)"
 
   topologySpreadConstraints:
